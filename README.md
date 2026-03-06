@@ -2,48 +2,76 @@
 
 `PenguinDarcy.jl` solves steady and transient Darcy pressure equations on Cartesian cut-cell grids and reconstructs Darcy velocity from the discrete gradient operator.
 
-## Scope (v0.1)
+It is intentionally a **scalar pressure** package (no saddle-point `(u,p)` backend), consistent with the Penguin ecosystem split.
 
-- Monophasic Darcy only
-- Steady and unsteady pressure solves
-- Fixed geometry only (no moving body support)
+## Scope
+
+Current implemented scope:
+
+- Monophasic Darcy (steady + unsteady)
+- Explicit two-domain fixed-interface Darcy (steady + unsteady)
+- Fixed geometry only
 - Outer box BCs (`Dirichlet`, `Neumann`, `Robin`, `Periodic`)
-- Optional fixed embedded mono interface BC through `Robin`
-- Postprocessed Darcy velocity/flux recovery
+- Gravity/body-force forcing
+- Distributed sources + conservative wells
+- Scalar/diagonal/full-tensor mobility
+- Velocity/flux reconstruction as postprocessing
 
-Not included in `v0.1`:
+Not implemented:
 
-- diphasic/two-domain Darcy
-- mixed `(u, p)` saddle-point solves
 - moving geometry
+- mixed `(u,p)` saddle-point formulations
 
 ## Governing equations
 
-Steady:
+Pressure form:
 
-`u = -λ∇p`, `∇·u = s`  ->  `-∇·(λ∇p) = s`
+- `u = -Λ(∇p - ρg)`
+- `S ∂t p + ∇·u = s + q_w`
 
-Unsteady:
+Steady is recovered with `S = 0`.
 
-`S ∂t p - ∇·(λ∇p) = s`
+Two-domain fixed-interface form uses one pressure equation per domain plus interface constraints.
 
-where:
+## Variable mode: pressure vs head
 
-- `p`: pressure
-- `u`: Darcy velocity
-- `λ`: mobility (`κ/μ`)
-- `S`: storage coefficient
-- `s`: source term
+`variable = :pressure` (default):
+- solve in pressure form with explicit `ρg` forcing.
 
-## BC conventions
+`variable = :head`:
+- use the same internal scalar path with head-like form (`ρg` forcing omitted in flux map).
 
-- `Dirichlet`: imposed pressure `p`
-- `Neumann`: imposed Darcy normal flux `u·n`
-- `Robin`: `α p + β (u·n) = g`
+## Tensor mobility
 
-For embedded impermeable boundaries, use `Robin(0, 1, 0)`.
+Supported mobility inputs:
 
-## Quick steady example
+- scalar (`λ::Number` or callable)
+- diagonal (`NTuple{N}` / vector of component mobilities)
+- full tensor (`N×N` constant matrix or callable returning `N×N`)
+
+Full tensors use cross-face interpolation (`cross_face_interp`) from `CartesianOperators.jl` so off-diagonal coupling is active.
+
+## Wells and sources
+
+- `source` contributes volumetrically via cell wet volume.
+- Wells are conservative by construction.
+
+Available well types:
+
+- `PointWell(x0, rate; radius=..., phase=...)`
+- `CellWell(mask_or_indices, rate; phase=...)`
+
+## Interface models (two-domain)
+
+- `DarcyContinuity(pressure_jump, flux_jump)` (default `DarcyContinuity(0,0)`)
+- `DarcyMembrane(σ, flux_jump)`
+
+Unknown layout follows Penguin conventions:
+
+- mono: `[pω, pγ]`
+- two-domain: `[p1ω, p1γ, p2ω, p2γ]`
+
+## Quick mono steady example
 
 ```julia
 using CartesianGeometry: geometric_moments, nan
@@ -57,43 +85,70 @@ cap = assembled_capacity(moms; bc=0.0)
 ops = DiffusionOps(cap; periodic=periodic_flags(BorderConditions(), 1))
 
 bc = BorderConditions(; left=Dirichlet(1.0), right=Dirichlet(0.0))
-model = DarcyModelMono(cap, ops, 2.0; source=(x, t) -> 0.0, bc_border=bc)
-
-sys = solve_steady!(model)
-vel = recover_velocity(model, sys.x)
-mb = compute_mass_balance(model, sys.x)
-```
-
-## Quick unsteady example
-
-```julia
-model = DarcyModelMono(cap, ops, 1.0;
-    source=(x, t) -> 0.0,
+model = DarcyModelMono(cap, ops, 2.0;
+    source=(x,t)->0.0,
     storage=1.0,
+    ρ=1.0,
+    gravity=(0.0,),
     bc_border=bc,
 )
 
-u0 = zeros(cap.ntotal)
-sol = solve_unsteady!(model, u0, (0.0, 0.5); dt=0.01, scheme=:CN)
+sys = solve_steady!(model)
+vel = recover_velocity(model, sys.x)
+mb = mass_balance(model, sys.x)
 ```
 
-## Public API
+## Quick two-domain example
 
-- `DarcyModelMono`
-- `assemble_steady_mono!`
-- `assemble_unsteady_mono!`
-- `solve_steady!`
-- `solve_unsteady!`
-- `recover_velocity`
-- `recover_flux`
-- `compute_mass_balance`
-- `boundary_discharge`
+```julia
+model = DarcyModelDiph(
+    cap1, ops1, λ1,
+    cap2, ops2, λ2;
+    source=((x...)->0.0, (x...)->0.0),
+    storage=(S1, S2),
+    ρ=(ρ1, ρ2),
+    gravity=(0.0, -9.81),
+    bc_border=bc,
+    bc_interface=DarcyContinuity(0.0, 0.0),
+)
+
+sys = solve_steady!(model)
+flux = recover_flux(model, sys.x)
+mb = mass_balance(model, sys.x)
+```
+
+## Main API
+
+- `DarcyModelMono`, `DarcyModelDiph`
+- `DarcyContinuity`, `DarcyMembrane`
+- `PointWell`, `CellWell`
+- `assemble_steady_mono!`, `assemble_unsteady_mono!`
+- `assemble_steady_diph!`, `assemble_unsteady_diph!`
+- `solve_steady!`, `solve_unsteady!`
+- `recover_velocity`, `recover_flux`
+- `mass_balance`, `compute_mass_balance`
+- `boundary_discharge`, `interface_discharge`
+- `integrated_source`, `integrated_well_rate`
 - `face_mobility_values`
+
+## Examples
+
+- `examples/steady_1d_linear_pressure.jl`
+- `examples/steady_2d_linear_gradient.jl`
+- `examples/unsteady_1d_mms.jl`
+- `examples/embedded_impermeable_circle.jl`
+- `examples/gravity_hydrostatic_1d.jl`
+- `examples/tensor_rotated_2d.jl`
+- `examples/well_pair_2d.jl`
+- `examples/two_domain_1d_piecewise.jl`
+- `examples/two_domain_circle_2d.jl`
+
+Each example prints pressure extrema, integrated source/well rates, boundary discharges, interface discharge (when applicable), and global mass-balance residual.
 
 ## Roadmap
 
 - `v0.1`: monophasic steady/unsteady fixed geometry
-- later: gravity/head wrapper
+- `v0.2`: gravity + wells + tensor mobility
+- `v0.3`: explicit two-domain fixed-interface Darcy
 - later: moving geometry
-- later: explicit two-domain Darcy interface solver
-- later: mixed `(u,p)` backend if needed for Brinkman/Stokes-Darcy coupling
+- later: mixed `(u,p)` backend for Brinkman/Stokes-Darcy coupling

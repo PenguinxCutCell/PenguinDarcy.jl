@@ -111,6 +111,32 @@ function face_mobility_values(
     return vals
 end
 
+function _diag_tensor_face_values(model, ops::DiffusionOps{N,T}, cap::AssembledCapacity{N,T}; t::T, phase::Int=1) where {N,T}
+    parts = ntuple(d -> face_tensor_values(model, ops, cap, d, d; t=t, phase=phase), N)
+    return join_face_stack(parts)
+end
+
 function face_mobility_values(model::DarcyModelMono{N,T}; t::T=zero(T)) where {N,T}
-    return face_mobility_values(model.cap, model.λ, t, model.coeff_mode)
+    mob = _wrap_mobility(model.λ, N)
+    if mob isa ScalarMobility
+        return face_mobility_values(model.cap, model.λ, t, model.coeff_mode)
+    end
+    return _diag_tensor_face_values(model, model.ops, model.cap; t=t, phase=1)
+end
+
+function face_mobility_values(model::DarcyModelDiph{N,T}; t::T=zero(T), phase::Int=1) where {N,T}
+    if phase == 1
+        mob = _wrap_mobility(model.λ1, N)
+        if mob isa ScalarMobility
+            return face_mobility_values(model.cap1, model.λ1, t, model.coeff_mode)
+        end
+        return _diag_tensor_face_values(model, model.ops1, model.cap1; t=t, phase=1)
+    elseif phase == 2
+        mob = _wrap_mobility(model.λ2, N)
+        if mob isa ScalarMobility
+            return face_mobility_values(model.cap2, model.λ2, t, model.coeff_mode)
+        end
+        return _diag_tensor_face_values(model, model.ops2, model.cap2; t=t, phase=2)
+    end
+    throw(ArgumentError("phase must be 1 or 2"))
 end

@@ -1,5 +1,10 @@
 # PenguinDarcy.jl
 
+[![In development documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://PenguinxCutCell.github.io/PenguinDarcy.jl/dev)
+![CI](https://github.com/PenguinxCutCell/PenguinDarcy.jl/actions/workflows/ci.yml/badge.svg)
+![Coverage](https://codecov.io/gh/PenguinxCutCell/PenguinDarcy.jl/branch/main/graph/badge.svg)
+
+
 `PenguinDarcy.jl` solves steady and transient Darcy pressure equations on Cartesian cut-cell grids and reconstructs Darcy velocity from the discrete gradient operator.
 
 It is intentionally a **scalar pressure** package (no saddle-point `(u,p)` backend), consistent with the Penguin ecosystem split.

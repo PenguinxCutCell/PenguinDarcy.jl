@@ -51,6 +51,9 @@ jobs:
 
       - name: Install dependencies, instantiate, and run tests
         run: julia --project=. -e 'using Pkg; Pkg.develop([
+              PackageSpec(url="https://github.com/PenguinxCutCell/Vofinit.jl.git"),
+              PackageSpec(url="https://github.com/PenguinxCutCell/VOFTools.jl.git"),
+              PackageSpec(url="https://github.com/PenguinxCutCell/VofiJul.jl.git"),
               PackageSpec(url="https://github.com/PenguinxCutCell/CartesianGeometry.jl.git"),
               PackageSpec(url="https://github.com/PenguinxCutCell/CartesianGrids.jl.git"),
               PackageSpec(url="https://github.com/PenguinxCutCell/CartesianOperators.jl.git"),

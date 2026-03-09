@@ -33,3 +33,9 @@ Notes
 
 - `u0` may be either the `ω` block (`length = ntotal`) or the full `ω+γ` state.
 - Supported unsteady schemes are `:BE`, `:CN`, or numeric `θ`.
+
+Internal API
+
+```@docs
+PenguinDarcy._apply_box_bc_darcy!
+```

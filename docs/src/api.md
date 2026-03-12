@@ -6,6 +6,9 @@ Primary type
   - Fields: `ops`, `cap`, `λ`, `source`, `storage`, `bc_border`, `bc_interface`, `layout`, `coeff_mode`
   - Constructor:
     - `DarcyModelMono(cap, ops, λ; source=..., storage=..., bc_border=..., bc_interface=..., layout=..., coeff_mode=...)`
+- `DarcyCoupledModelMono`
+  - SolverCore wrapper for coupled block orchestration.
+  - Produces `:velocity`, accepts incoming `:concentration`.
 
 Assembly
 

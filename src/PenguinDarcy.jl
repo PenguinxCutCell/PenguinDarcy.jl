@@ -12,6 +12,7 @@ using PenguinSolverCore
 
 export DarcyModelMono
 export DarcyModelDiph
+export DarcyCoupledModelMono
 export DarcyContinuity, DarcyMembrane
 export PointWell, CellWell
 export assemble_steady_mono!, assemble_unsteady_mono!
@@ -25,6 +26,7 @@ export integrated_source, integrated_well_rate
 include("models.jl")
 include("interface.jl")
 include("models_diph.jl")
+include("coupling.jl")
 include("wells.jl")
 include("gravity.jl")
 include("tensors.jl")

@@ -21,6 +21,7 @@ Current implemented scope:
 - Distributed sources + conservative wells
 - Scalar/diagonal/full-tensor mobility
 - Velocity/flux reconstruction as postprocessing
+- SolverCore coupling adapter (`DarcyCoupledModelMono`) for Darcy -> transport workflows
 
 Not implemented:
 
@@ -125,6 +126,7 @@ mb = mass_balance(model, sys.x)
 ## Main API
 
 - `DarcyModelMono`, `DarcyModelDiph`
+- `DarcyCoupledModelMono`
 - `DarcyContinuity`, `DarcyMembrane`
 - `PointWell`, `CellWell`
 - `assemble_steady_mono!`, `assemble_unsteady_mono!`
@@ -135,6 +137,15 @@ mb = mass_balance(model, sys.x)
 - `boundary_discharge`, `interface_discharge`
 - `integrated_source`, `integrated_well_rate`
 - `face_mobility_values`
+
+## Coupling Adapter (SolverCore)
+
+`DarcyCoupledModelMono` adapts `DarcyModelMono` to `PenguinSolverCore` block orchestration.
+
+- Exports coupling field `:velocity`
+- Accepts incoming field `:concentration`
+- Optional mobility callback for two-way workflows (`λ = λ(c)`)
+- Current unsteady coupling path is quasi-steady Darcy solve per transport time step
 
 ## Examples
 

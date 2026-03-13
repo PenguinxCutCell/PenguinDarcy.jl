@@ -3,7 +3,9 @@ using LinearAlgebra
 using SparseArrays
 
 using CartesianGeometry: geometric_moments, nan
+using CartesianGrids
 using CartesianOperators
+using GlobalHeightFunctions
 using PenguinBCs
 using PenguinDarcy
 
@@ -49,3 +51,10 @@ include("test_diph_steady_1d.jl")
 include("test_diph_unsteady_1d.jl")
 include("test_diph_gravity.jl")
 include("test_coupling_adapter.jl")
+include("test_free_mono_planar_translation.jl")
+include("test_free_mono_hydrostatic_equilibrium.jl")
+include("test_free_diph_planar_translation.jl")
+include("test_free_diph_hydrostatic_equilibrium.jl")
+include("test_height_tracker_roundtrip.jl")
+include("test_free_boundary_residual_history.jl")
+include("test_free_boundary_api_errors.jl")

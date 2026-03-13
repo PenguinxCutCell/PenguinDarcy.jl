@@ -6,19 +6,24 @@ Run examples from repository root:
 julia --project=. examples/steady_1d_linear_pressure.jl
 ```
 
-Available examples
+Fixed-geometry examples
 
 - `examples/steady_1d_linear_pressure.jl`
-  - 1D steady Darcy pressure benchmark.
-
-- `examples/unsteady_1d_mms.jl`
-  - 1D unsteady manufactured-solution style validation.
-
 - `examples/steady_2d_linear_gradient.jl`
-  - 2D steady linear-gradient pressure case.
-
+- `examples/unsteady_1d_mms.jl`
 - `examples/embedded_impermeable_circle.jl`
-  - Embedded impermeable boundary using interface Robin condition.
+- `examples/gravity_hydrostatic_1d.jl`
+- `examples/tensor_rotated_2d.jl`
+- `examples/well_pair_2d.jl`
+- `examples/two_domain_1d_piecewise.jl`
+- `examples/two_domain_circle_2d.jl`
+
+Moving/free-boundary examples
+
+- `examples/free_boundary_mono_planar_translation_2d.jl`
+- `examples/free_boundary_mono_hydrostatic_equilibrium_2d.jl`
+- `examples/free_boundary_diph_planar_translation_2d.jl`
+- `examples/free_boundary_diph_muskat_perturbation_2d.jl`
 
 Run tests
 
@@ -26,9 +31,12 @@ Run tests
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-Test files
+Moving/free-boundary tests
 
-- `test/test_steady_1d.jl`
-- `test/test_unsteady_1d.jl`
-- `test/test_steady_2d.jl`
-- `test/test_embedded_boundary.jl`
+- `test/test_free_mono_planar_translation.jl`
+- `test/test_free_mono_hydrostatic_equilibrium.jl`
+- `test/test_free_diph_planar_translation.jl`
+- `test/test_free_diph_hydrostatic_equilibrium.jl`
+- `test/test_height_tracker_roundtrip.jl`
+- `test/test_free_boundary_residual_history.jl`
+- `test/test_free_boundary_api_errors.jl`

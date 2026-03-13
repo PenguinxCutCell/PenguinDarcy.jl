@@ -8,6 +8,7 @@ Pages
 - [Numerical algorithms](algorithms.md)
 - [API and types](api.md)
 - [Examples and tests](examples.md)
+- [Free-boundary Darcy models](free_boundary.md)
 
 Build notes
 

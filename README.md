@@ -4,150 +4,110 @@
 ![CI](https://github.com/PenguinxCutCell/PenguinDarcy.jl/actions/workflows/ci.yml/badge.svg)
 ![Coverage](https://codecov.io/gh/PenguinxCutCell/PenguinDarcy.jl/branch/main/graph/badge.svg)
 
+`PenguinDarcy.jl` solves Darcy pressure equations on Cartesian cut-cell grids.
 
-`PenguinDarcy.jl` solves steady and transient Darcy pressure equations on Cartesian cut-cell grids and reconstructs Darcy velocity from the discrete gradient operator.
+The package stays pressure-only (no mixed `(u,p)` saddle-point solve), and now includes both fixed-geometry and graph-based moving/free-boundary Darcy models.
 
-It is intentionally a **scalar pressure** package (no saddle-point `(u,p)` backend), consistent with the Penguin ecosystem split.
+## Feature matrix
 
-## Scope
+| Capability | Status |
+|---|---|
+| Mono fixed geometry, steady | implemented |
+| Mono fixed geometry, unsteady (`storage != 0`) | implemented |
+| Two-phase fixed interface, steady | implemented |
+| Two-phase fixed interface, unsteady (`storage != 0`) | implemented |
+| Mono free-boundary (graph interface), quasi-steady | implemented |
+| Two-phase free-boundary (graph interface), quasi-steady | implemented |
+| Free-boundary backend: `HeightFunctionTracker` (`GlobalHeightFunctions.jl`) | implemented |
+| Free-boundary backend: level-set | not implemented |
+| Free-boundary backend: gVOF transport | not implemented |
+| Free-boundary with topology changes / bubbles / droplets | not implemented |
+| Moving two-phase with nonzero interfacial `flux_jump` | not implemented |
+| Moving-geometry transient storage (`storage != 0`) | not implemented |
 
-Current implemented scope:
+Important limitation of this first moving release: **graph interfaces only**.
 
-- Monophasic Darcy (steady + unsteady)
-- Explicit two-domain fixed-interface Darcy (steady + unsteady)
-- Fixed geometry only
-- Outer box BCs (`Dirichlet`, `Neumann`, `Robin`, `Periodic`)
-- Gravity/body-force forcing
-- Distributed sources + conservative wells
-- Scalar/diagonal/full-tensor mobility
-- Velocity/flux reconstruction as postprocessing
-- SolverCore coupling adapter (`DarcyCoupledModelMono`) for Darcy -> transport workflows
+## Governing models
 
-Not implemented:
-
-- moving geometry
-- mixed `(u,p)` saddle-point formulations
-
-## Governing equations
-
-Pressure form:
+Darcy velocity:
 
 - `u = -Λ(∇p - ρg)`
-- `S ∂t p + ∇·u = s + q_w`
 
-Steady is recovered with `S = 0`.
+Mono bulk equation:
 
-Two-domain fixed-interface form uses one pressure equation per domain plus interface constraints.
+- `∇·u = s + q_w` (quasi-steady moving mode)
+- `S ∂t p + ∇·u = s + q_w` (fixed-geometry unsteady mode)
 
-## Variable mode: pressure vs head
+Two-phase interface conditions (moving mode):
 
-`variable = :pressure` (default):
-- solve in pressure form with explicit `ρg` forcing.
+- `[u·n] = 0`
+- `V_n = (u₁·n)/ϕ_Γ = (u₂·n)/ϕ_Γ`
+- `[p] = J_p` with optional capillary contribution `σ κ`
 
-`variable = :head`:
-- use the same internal scalar path with head-like form (`ρg` forcing omitted in flux map).
+Graph kinematics uses the correct axis-aware form. For `x = h(y,t)`:
 
-## Tensor mobility
+- `h_t = u_x - u_y h_y = V_n / (n·e_x)`
 
-Supported mobility inputs:
+## Scope notes for moving models
 
-- scalar (`λ::Number` or callable)
-- diagonal (`NTuple{N}` / vector of component mobilities)
-- full tensor (`N×N` constant matrix or callable returning `N×N`)
+- `HeightFunctionTracker` is the current tracker backend.
+- `interface_porosity` in kinematics defaults to `1`, but is configurable.
+- Surface tension is optional (`surface_tension = 0` by default).
+- If moving models are built with nonzero `storage`, constructors throw a clear error.
+- If moving two-phase models use nonzero `flux_jump`, constructors throw a clear error.
 
-Full tensors use cross-face interpolation (`cross_face_interp`) from `CartesianOperators.jl` so off-diagonal coupling is active.
-
-## Wells and sources
-
-- `source` contributes volumetrically via cell wet volume.
-- Wells are conservative by construction.
-
-Available well types:
-
-- `PointWell(x0, rate; radius=..., phase=...)`
-- `CellWell(mask_or_indices, rate; phase=...)`
-
-## Interface models (two-domain)
-
-- `DarcyContinuity(pressure_jump, flux_jump)` (default `DarcyContinuity(0,0)`)
-- `DarcyMembrane(σ, flux_jump)`
-
-Unknown layout follows Penguin conventions:
-
-- mono: `[pω, pγ]`
-- two-domain: `[p1ω, p1γ, p2ω, p2γ]`
-
-## Quick mono steady example
+## Quick moving example (mono)
 
 ```julia
-using CartesianGeometry: geometric_moments, nan
-using CartesianOperators
-using PenguinBCs
 using PenguinDarcy
+using CartesianGrids
+using PenguinBCs
 
-grid = (range(0.0, 1.0; length=65),)
-moms = geometric_moments((x, t=0.0) -> -1.0, grid, Float64, nan; method=:vofijul)
-cap = assembled_capacity(moms; bc=0.0)
-ops = DiffusionOps(cap; periodic=periodic_flags(BorderConditions(), 1))
+grid = CartesianGrid((0.0, 0.0), (1.0, 1.0), (81, 65))
+y = collect(grid1d(grid, 2))
+xf0 = fill(0.43, length(y)); xf0[end] = xf0[1]
 
-bc = BorderConditions(; left=Dirichlet(1.0), right=Dirichlet(0.0))
-model = DarcyModelMono(cap, ops, 2.0;
-    source=(x,t)->0.0,
-    storage=1.0,
-    ρ=1.0,
-    gravity=(0.0,),
+tracker = HeightFunctionTracker(grid, xf0; axis=:x, periodic_transverse=true)
+bc = BorderConditions(; left=Neumann(-0.2), right=Neumann(0.0), bottom=Periodic(), top=Periodic())
+
+model = MovingDarcyModelMono(tracker, 1.0;
+    source=(x,y,t)->0.0,
     bc_border=bc,
+    p_ext=0.0,
 )
 
-sys = solve_steady!(model)
-vel = recover_velocity(model, sys.x)
-mb = mass_balance(model, sys.x)
-```
-
-## Quick two-domain example
-
-```julia
-model = DarcyModelDiph(
-    cap1, ops1, λ1,
-    cap2, ops2, λ2;
-    source=((x...)->0.0, (x...)->0.0),
-    storage=(S1, S2),
-    ρ=(ρ1, ρ2),
-    gravity=(0.0, -9.81),
-    bc_border=bc,
-    bc_interface=DarcyContinuity(0.0, 0.0),
-)
-
-sys = solve_steady!(model)
-flux = recover_flux(model, sys.x)
-mb = mass_balance(model, sys.x)
+sol = solve_unsteady_moving!(model, (0.0, 0.05); dt=0.01)
 ```
 
 ## Main API
 
+Fixed geometry:
+
 - `DarcyModelMono`, `DarcyModelDiph`
-- `DarcyCoupledModelMono`
 - `DarcyContinuity`, `DarcyMembrane`
-- `PointWell`, `CellWell`
 - `assemble_steady_mono!`, `assemble_unsteady_mono!`
 - `assemble_steady_diph!`, `assemble_unsteady_diph!`
 - `solve_steady!`, `solve_unsteady!`
+
+Moving/free-boundary:
+
+- `AbstractDarcyTracker`, `HeightFunctionTracker`
+- `MovingDarcyModelMono`, `MovingDarcyModelDiph`
+- `assemble_unsteady_moving!`, `solve_unsteady_moving!`
+- `interface_normal_velocity`, `update_interface!`
+- `interface_mass_residual`, `interface_iteration_history`
+
+Postprocessing/diagnostics:
+
 - `recover_velocity`, `recover_flux`
 - `mass_balance`, `compute_mass_balance`
 - `boundary_discharge`, `interface_discharge`
 - `integrated_source`, `integrated_well_rate`
 - `face_mobility_values`
 
-## Coupling Adapter (SolverCore)
-
-`DarcyCoupledModelMono` adapts `DarcyModelMono` to `PenguinSolverCore` block orchestration.
-
-- Exports coupling field `:velocity`
-- Accepts incoming field `:concentration`
-- Optional mobility callback for two-way workflows (`λ = λ(c)`)
-- Current unsteady coupling path is quasi-steady Darcy solve per transport time step
-
 ## Examples
+
+Fixed-geometry examples:
 
 - `examples/steady_1d_linear_pressure.jl`
 - `examples/steady_2d_linear_gradient.jl`
@@ -159,12 +119,14 @@ mb = mass_balance(model, sys.x)
 - `examples/two_domain_1d_piecewise.jl`
 - `examples/two_domain_circle_2d.jl`
 
-Each example prints pressure extrema, integrated source/well rates, boundary discharges, interface discharge (when applicable), and global mass-balance residual.
+Moving/free-boundary examples:
+
+- `examples/free_boundary_mono_planar_translation_2d.jl`
+- `examples/free_boundary_mono_hydrostatic_equilibrium_2d.jl`
+- `examples/free_boundary_diph_planar_translation_2d.jl`
+- `examples/free_boundary_diph_muskat_perturbation_2d.jl`
 
 ## Roadmap
 
-- `v0.1`: monophasic steady/unsteady fixed geometry
-- `v0.2`: gravity + wells + tensor mobility
-- `v0.3`: explicit two-domain fixed-interface Darcy
-- later: moving geometry
-- later: mixed `(u,p)` backend for Brinkman/Stokes-Darcy coupling
+- Add level-set and gVOF tracker backends through the same `AbstractDarcyTracker` path.
+- Add moving-geometry support for nonzero interfacial mass transfer and richer topology handling.

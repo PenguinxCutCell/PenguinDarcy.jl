@@ -16,6 +16,7 @@ makedocs(
         "Examples" => "examples.md",
         "Algorithms" => "algorithms.md",
         "Darcy Model" => "darcy.md",
+        "Free-Boundary Darcy" => "free_boundary.md",
     ],
     pagesonly = true,
     warnonly = false,

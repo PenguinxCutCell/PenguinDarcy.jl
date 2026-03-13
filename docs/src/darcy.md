@@ -2,6 +2,8 @@
 
 `PenguinDarcy.jl` solves steady and unsteady single-phase Darcy pressure equations on Cartesian cut-cell grids.
 
+It also provides graph-based moving/free-boundary Darcy models (see `free_boundary.md`) with quasi-steady pressure solves and implicit interface updates.
+
 Steady:
 
 `-∇·(λ∇p) = s`

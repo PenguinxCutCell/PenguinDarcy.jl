@@ -1,44 +1,65 @@
 **API and Types**
 
-Primary type
+## Fixed-geometry models
 
-- `DarcyModelMono{N,T,LT,ST,ΣT,IT}`
-  - Fields: `ops`, `cap`, `λ`, `source`, `storage`, `bc_border`, `bc_interface`, `layout`, `coeff_mode`
-  - Constructor:
-    - `DarcyModelMono(cap, ops, λ; source=..., storage=..., bc_border=..., bc_interface=..., layout=..., coeff_mode=...)`
-- `DarcyCoupledModelMono`
-  - SolverCore wrapper for coupled block orchestration.
-  - Produces `:velocity`, accepts incoming `:concentration`.
+- `DarcyModelMono`
+- `DarcyModelDiph`
+- `DarcyContinuity`, `DarcyMembrane`
 
-Assembly
+Assembly/solve:
 
-- `assemble_steady_mono!(sys, model, t)`
-- `assemble_unsteady_mono!(sys, model, uⁿ, t, dt, scheme)`
+- `assemble_steady_mono!`, `assemble_unsteady_mono!`
+- `assemble_steady_diph!`, `assemble_unsteady_diph!`
+- `solve_steady!`, `solve_unsteady!`
 
-Solvers
+Postprocessing/diagnostics:
 
-- `solve_steady!(model; t=0, method=:direct, kwargs...)`
-- `solve_unsteady!(model, u0, tspan; dt, scheme=:BE|:CN|θ, method=:direct, save_history=true, kwargs...)`
+- `recover_flux`, `recover_velocity`
+- `mass_balance`, `compute_mass_balance`
+- `boundary_discharge`, `interface_discharge`
+- `integrated_source`, `integrated_well_rate`
+- `face_mobility_values`
 
-Post-processing
+## Moving/free-boundary models
 
-- `recover_flux(model, state; t=0)`
-- `recover_velocity(model, state; t=0)` (alias of `recover_flux`)
-- `face_mobility_values(model; t=0)`
-- `face_mobility_values(cap, λ, t, mode)`
+- `AbstractDarcyTracker`
+- `HeightFunctionTracker`
+- `MovingDarcyModelMono`
+- `MovingDarcyModelDiph`
+- `assemble_unsteady_moving!`
+- `solve_unsteady_moving!`
+- `interface_normal_velocity`
+- `update_interface!`
+- `interface_mass_residual`
+- `interface_iteration_history`
 
-Diagnostics
+Notes:
 
-- `boundary_discharge(model, state, side; t=0)`
-- `compute_mass_balance(model, state; t=0)`
-
-Notes
-
-- `u0` may be either the `ω` block (`length = ntotal`) or the full `ω+γ` state.
-- Supported unsteady schemes are `:BE`, `:CN`, or numeric `θ`.
+- Moving models are quasi-steady in this release.
+- `storage != 0` is rejected for moving geometry.
+- Moving two-phase models require `flux_jump = 0`.
 
 Internal API
 
 ```@docs
 PenguinDarcy._apply_box_bc_darcy!
+```
+
+Moving docstrings
+
+```@docs
+PenguinDarcy.InterfaceIterationHistory
+PenguinDarcy.MovingStepDiagnostics
+PenguinDarcy.MovingDarcySolution
+PenguinDarcy.tracker_dimension_type
+PenguinDarcy.tracker_state
+PenguinDarcy.interface_positions
+PenguinDarcy.rebuild_signed_distance_or_geometry
+PenguinDarcy.rebuild_capacities
+PenguinDarcy.interface_normals
+PenguinDarcy.interface_curvature
+PenguinDarcy.update_interface!
+PenguinDarcy.predictor_interface_state
+PenguinDarcy.check_graph_validity
+PenguinDarcy.interface_iteration_history
 ```

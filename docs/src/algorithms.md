@@ -21,6 +21,14 @@
 - Solve each step through `PenguinSolverCore.solve!`.
 - Return `(times, states, system, reused_constant_operator=false)`.
 
+4) Moving free-boundary integration (`solve_unsteady_moving!`)
+
+- Predict a graph-interface state from tracker history.
+- Rebuild cut-cell geometry from the graph (`HeightFunctionTracker`).
+- Reuse Darcy steady assembly/solve on rebuilt geometry.
+- Recover interface normal velocity and solve implicit graph residual with damped Picard iterations.
+- Store per-step diagnostics: interface residual history, mass residual, CFL-like indicator, and velocity-jump metric (two-phase).
+
 Performance notes
 
 - Canonical `(ω, γ)` layouts are assembled as direct block matrices.
